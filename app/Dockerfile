@@ -5,8 +5,6 @@ WORKDIR /app
 
 # Copia os arquivos do host para o container
 COPY main.py .
-COPY ingestion.py .
-COPY lstm_train.py .
 COPY modules/ /app/modules/
 
 # Instala as dependências necessárias

@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, D
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+
 def run_ingestion():
     # Configs do banco
     DB_USER = os.getenv("DB_USER")
@@ -23,14 +24,11 @@ def run_ingestion():
         __tablename__ = "apple_stonks"
 
         id = Column(Integer, primary_key=True, autoincrement=True)
-        date = Column(Date, nullable=False)
-        valor = Column(Float, nullable=False)
+        date = Column(Date, nullable=False, unique=True)
+        valor = Column(Float)
         valor_previsto = Column(Float)
         modelo_version = Column(String)
         is_predict = Column(Boolean, default=False)
-        mae = Column(Float)
-        rmse = Column(Float)
-        mape = Column(Float)
 
     engine = create_engine(DATABASE_URL)
     Base.metadata.create_all(engine)
@@ -40,21 +38,22 @@ def run_ingestion():
 
     # Obter os dados do yfinance
     ticker = yf.Ticker("AAPL")
-    hist = ticker.history(period="max")  # últimos 5 dias
+    hist = ticker.history(period="2y")
 
     for index, row in hist.iterrows():
         date = index.date()
         valor = float(row["Close"])
 
-        stonk = AppleStonk(
-            date=date,
-            valor=valor,
-            is_predict=False
-        )
-
         existing = session.query(AppleStonk).filter_by(date=date, is_predict=False).first()
-        if not existing:
-            session.add(stonk)
+        if existing:
+            existing.valor = valor
+        else:
+            new_stonk = AppleStonk(
+                date=date,
+                valor=valor,
+                is_predict=False
+            )
+            session.add(new_stonk)
 
     session.commit()
     print("Dados da Apple salvos com sucesso.")

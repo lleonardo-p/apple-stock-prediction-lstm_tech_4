@@ -3,7 +3,9 @@ import torch
 import numpy as np
 import pandas as pd
 import os
+from datetime import date
 from sqlalchemy import create_engine
+from sqlalchemy import text
 from sklearn.preprocessing import MinMaxScaler
 
 app = FastAPI()
@@ -14,8 +16,8 @@ scaler: MinMaxScaler = None
 
 WINDOW_SIZE = 20
 
+
 def get_last_sequence(window_size: int = 20) -> np.ndarray:
-    """Busca os últimos valores reais da tabela para predição."""
     DB_USER = os.getenv("DB_USER")
     DB_PASSWORD = os.getenv("DB_PASSWORD")
     DB_HOST = os.getenv("DB_HOST")
@@ -37,7 +39,38 @@ def get_last_sequence(window_size: int = 20) -> np.ndarray:
     if len(df) != window_size:
         raise ValueError(f"Não há {window_size} valores suficientes para a predição.")
 
-    return df['valor'].values[::-1]  # Inverter para ordem cronológica
+    return df['valor'].values[::-1]  # Ordem cronológica
+
+
+def insert_prediction(predicted_value: float):
+    DB_USER = os.getenv("DB_USER")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
+    DB_HOST = os.getenv("DB_HOST")
+    DB_PORT = os.getenv("DB_PORT", "5432")
+    DB_NAME = os.getenv("DB_NAME")
+
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    engine = create_engine(DATABASE_URL)
+
+    today = date.today().isoformat()
+
+    update_query = text("""
+        UPDATE apple_stonks
+        SET valor_previsto = :valor
+        WHERE date = :date AND is_predict = true
+    """)
+
+    insert_query = text("""
+        INSERT INTO apple_stonks (date, valor_previsto, is_predict)
+        VALUES (:date, :valor, true)
+    """)
+
+    with engine.connect() as conn:
+        result = conn.execute(update_query, {"date": today, "valor": predicted_value})
+        if result.rowcount == 0:
+            conn.execute(insert_query, {"date": today, "valor": predicted_value})
+        conn.commit()
+
 
 @app.get("/predict")
 def predict():
@@ -51,10 +84,13 @@ def predict():
         with torch.no_grad():
             prediction = model(input_tensor).item()
 
-        prediction_inverse = scaler.inverse_transform([[prediction]])[0][0]
+        prediction_inverse = float(scaler.inverse_transform([[prediction]])[0][0])
+        insert_prediction(prediction_inverse)
+
         return {"valor_previsto": prediction_inverse}
     except Exception as e:
         return {"error": str(e)}
+
 
 def run_api(m, s):
     global model, scaler

@@ -53,16 +53,14 @@ def preprocess_data(df: pd.DataFrame, window_size: int = 20,
                     test_size: float = 0.2, val_size: float = 0.1
                     ) -> Tuple[DataLoader, DataLoader, torch.Tensor, torch.Tensor, MinMaxScaler]:
     series = df['valor'].values
-    scaler = MinMaxScaler()
-    scaled_series = scaler.fit_transform(series.reshape(-1, 1))
 
     X, y = [], []
-    for i in range(window_size, len(scaled_series)):
-        X.append(scaled_series[i - window_size:i])
-        y.append(scaled_series[i])
+    for i in range(window_size, len(series)):
+        X.append(series[i - window_size:i])
+        y.append(series[i])
 
-    X = torch.tensor(X, dtype=torch.float32)
-    y = torch.tensor(y, dtype=torch.float32)
+    X = np.array(X)
+    y = np.array(y)
 
     tscv = TimeSeriesSplit(n_splits=5)
     splits = list(tscv.split(X))
@@ -75,10 +73,33 @@ def preprocess_data(df: pd.DataFrame, window_size: int = 20,
     X_val, y_val = X[val_idx], y[val_idx]
     X_test, y_test = X[test_idx], y[test_idx]
 
-    train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=32, shuffle=False)
-    val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=32, shuffle=False)
+    scaler = MinMaxScaler()
+    scaler.fit(y_train.reshape(-1, 1))  # Fit apenas no y_train
 
-    return train_loader, val_loader, X_test, y_test, scaler
+    X_train_scaled = scaler.transform(X_train.reshape(-1, 1)).reshape(X_train.shape)
+    y_train_scaled = scaler.transform(y_train.reshape(-1, 1))
+    X_val_scaled = scaler.transform(X_val.reshape(-1, 1)).reshape(X_val.shape)
+    y_val_scaled = scaler.transform(y_val.reshape(-1, 1))
+    X_test_scaled = scaler.transform(X_test.reshape(-1, 1)).reshape(X_test.shape)
+    y_test_scaled = scaler.transform(y_test.reshape(-1, 1))
+
+    # ADICIONA a dimensão de features = 1
+    X_train_scaled = np.expand_dims(X_train_scaled, axis=-1)
+    X_val_scaled = np.expand_dims(X_val_scaled, axis=-1)
+    X_test_scaled = np.expand_dims(X_test_scaled, axis=-1)
+
+    # Prints para diagnóstico
+    print("Scaler min:", scaler.data_min_)
+    print("Scaler max:", scaler.data_max_)
+    print("X_train shape:", X_train_scaled.shape)  # Deve ser (batch, time_steps, 1)
+
+    train_loader = DataLoader(TensorDataset(torch.tensor(X_train_scaled, dtype=torch.float32),
+                                            torch.tensor(y_train_scaled, dtype=torch.float32)), batch_size=32, shuffle=False)
+    val_loader = DataLoader(TensorDataset(torch.tensor(X_val_scaled, dtype=torch.float32),
+                                          torch.tensor(y_val_scaled, dtype=torch.float32)), batch_size=32, shuffle=False)
+
+    return train_loader, val_loader, torch.tensor(X_test_scaled, dtype=torch.float32), torch.tensor(y_test_scaled, dtype=torch.float32), scaler
+
 
 def train(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
           epochs: int, lr: float, patience: int) -> None:
@@ -182,7 +203,6 @@ def run_model(window_size: int = 20, test_size: float = 0.2,
             best_trial.params["patience"]
         )
 
-        # Salva modelo e scaler em disco
         torch.save(best_model.state_dict(), "lstm_model.pt")
         joblib.dump(scaler, "scaler.save")
 
