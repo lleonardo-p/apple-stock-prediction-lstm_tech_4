@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app_network
+
+  app:
+    build: ./app
+    container_name: python_app
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: mydatabase
+      DB_USER: user
+      DB_PASSWORD: password
+    ports:
+      - "8000:8000"  # <== expõe a porta da API
+    networks:
+      - app_network
+    command: ["python", "main.py"]  # ou "uvicorn modules.api_module:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  pgdata:
+
+networks:
+  app_network:
+    driver: bridge
