@@ -17,6 +17,8 @@ RUN pip install --no-cache-dir \
     scikit-learn \
     numpy \
     torch \
+    prometheus_client \
+    starlette \
     pandas
 
 # Comando para rodar o script principal
