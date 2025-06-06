@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 import torch
 import numpy as np
 import pandas as pd
@@ -15,7 +16,17 @@ from prometheus_client import (
 )
 from starlette.responses import Response
 
+
 app = FastAPI()
+
+# Libera todas as origens (bypass total)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Aceita requisições de qualquer domínio
+    allow_credentials=True,
+    allow_methods=["*"],  # Aceita todos os métodos (GET, POST, etc)
+    allow_headers=["*"],  # Aceita todos os headers
+)
 
 # Variáveis globais para o modelo e scaler
 model: torch.nn.Module = None

@@ -9,6 +9,8 @@ Prever o valor de fechamento das ações de uma empresa (Apple Inc.) utilizando 
 * Deploy de uma API em produção (FastAPI)
 * Monitoramento e observabilidade com Prometheus e Grafana
 
+![Dashboard no Grafana](document/img/aapl_predict.png)
+
 ---
 
 # ⚙️ O Projeto
