@@ -52,7 +52,7 @@ def insert_prediction(predicted_value: float):
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     engine = create_engine(DATABASE_URL)
 
-    today = date.today().isoformat()
+    next_business_day = pd.date_range(start=pd.Timestamp.today() + pd.Timedelta(days=1), periods=1, freq="B")[0].date()
 
     update_query = text("""
         UPDATE apple_stonks
@@ -66,9 +66,9 @@ def insert_prediction(predicted_value: float):
     """)
 
     with engine.connect() as conn:
-        result = conn.execute(update_query, {"date": today, "valor": predicted_value})
+        result = conn.execute(update_query, {"date": next_business_day, "valor": predicted_value})
         if result.rowcount == 0:
-            conn.execute(insert_query, {"date": today, "valor": predicted_value})
+            conn.execute(insert_query, {"date": next_business_day, "valor": predicted_value})
         conn.commit()
 
 

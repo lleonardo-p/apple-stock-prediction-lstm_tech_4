@@ -44,7 +44,7 @@ def run_ingestion():
         date = index.date()
         valor = float(row["Close"])
 
-        existing = session.query(AppleStonk).filter_by(date=date, is_predict=False).first()
+        existing = session.query(AppleStonk).filter_by(date=date).first()
         if existing:
             existing.valor = valor
         else:

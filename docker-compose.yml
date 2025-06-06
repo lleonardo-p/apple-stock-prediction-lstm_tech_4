@@ -26,11 +26,46 @@ services:
       DB_NAME: mydatabase
       DB_USER: user
       DB_PASSWORD: password
-    ports:
-      - "8000:8000"  # <== expõe a porta da API
     networks:
       - app_network
-    command: ["python", "main.py"]  # ou "uvicorn modules.api_module:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"  # ← Adiciona essa linha
+
+  monitoring_app:
+    build: ./monitoring
+    container_name: monitoring_app
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: mydatabase
+      DB_USER: user
+      DB_PASSWORD: password
+    networks:
+      - app_network
+    ports:
+      - "9100:9100"
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    networks:
+      - app_network
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - app_network
 
 volumes:
   pgdata:
